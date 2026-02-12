@@ -1,0 +1,13 @@
+@if (last) {
+  <div>
+    <div>Last status: {{ last.status }}</div>
+    <div>Query: {{ last.query }}</div>
+    <div>Results: {{ last.resultCount }}</div>
+    <div>Elapsed: {{ last.elapsedMs }} ms</div>
+    @if (last.error) {
+      <div>Error: {{ last.error }}</div>
+    }
+  </div>
+}
+
+`,

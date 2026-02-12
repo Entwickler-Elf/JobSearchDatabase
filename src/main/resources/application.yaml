@@ -31,12 +31,30 @@ server:
     context-path: /jobsearch
 
 jobsearch:
-  default-query: "I am looking for a java software developer position. It must be in Huntsville, AL OR remote. Positions
-   that are in  must not require active security clearance or active top secret security clearance in order to apply.
-   Positions in Huntsville may be onsite or hybrid or remote. Positions that are not in Huntsville must be fully remote. 
-   The position will require experience any of  java, spring boot, postgreSQL. It may contain Angular, it may contain 
-   Angular and React but it will not include React without the presence of Angular. W2 Contract work is preferred, 
-   full-time and part-time work are acceptable. "
+  default-query: "
+  I am looking for a java software developer position. It may contain Angular, it may contain
+   Angular and React but it will not include React without the presence of Angular.
+  ** The position will require experience any of  java, spring boot, postgreSQL.
+  ** It must be within 120 miles of Huntsville, AL OR remote.
+  ** Positions that are in Huntsville, AL must not require active security clearance or active top secret security clearance in order to apply.
+  ** Positions in or within 120 miles to Huntsville may be onsite or hybrid or remote.
+  ** Positions that are not within 120 miles of Huntsville must be fully remote.
+  ** W2 Contract work is preferred, full-time and part-time work are acceptable.
+  Report possible positions that have a posted date no more than 7 days old. "
+#  default-query: "
+#  I am looking for a java software developer position. It may contain Angular, it may contain
+#   Angular and React but it will not include React without the presence of Angular.
+#  ** The position will require experience any of  java, spring boot, postgreSQL.
+#  ** It must be in Huntsville, AL.
+#  ** must not require active security clearance or active top secret security clearance in order to apply.
+#  ** W2 Contract work is preferred, full-time and part-time work are acceptable.
+#  Report possible positions that have a posted date no more than 7 days old. "
   runner:
     enabled: false
+
+dice:
+  search:
+    default-query: "java spring developer remote"
+    cron: "0 0 0,12 * * *"
+    time-zone: "CST"
 

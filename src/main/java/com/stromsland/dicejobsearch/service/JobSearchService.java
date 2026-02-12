@@ -11,6 +11,7 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.BeanUtils;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StopWatch;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -19,7 +20,13 @@ import java.util.regex.Pattern;
  
 @Service
 public class JobSearchService {
- 
+
+    public record SearchRunSummary(
+            String Query,
+            int newJobsCount,
+            long totalJobsCount
+    ) { }
+
     private final ChatClient chatClient;
     private final RestTemplate restTemplate;
     // Use TypeReference to properly handle the List of Records
@@ -29,17 +36,23 @@ public class JobSearchService {
 
     private final String systemPrompt = """
     You are a job search assistant.
-    
+
+    IMPORTANT TOOL SCHEMA RULES (MUST FOLLOW):
+    - When calling the Dice tool 'search_jobs', DO NOT request 'jobLocation' in the 'fields' list.
+    - The allowed location field is 'jobLocation.displayName' (use that exact string).
+
     WORKFLOW:
     1. Search for jobs using 'search_jobs' with the user's query.
+       - When you call 'search_jobs', include fields that match the tool schema, including:
+         id, title, summary, companyName, jobLocation.displayName, detailsPageUrl, companyPageUrl,
+         salary, employmentType, workplaceTypes, postedDate, easyApply
     2. For the FIRST result, use 'fetchDiceId' with the 'detailsPageUrl'.
     3. Include that ID in the 'diceId' field of your response.
-    
-    DATA MAPPING:
-    - The Dice tool returns location in 'jobLocation.displayName'.\s
-    - You MUST map that value to the 'jobLocation' field in your JSON output.
-    - Map 'companyName' to 'companyName'.
-    - Map 'employmentType' to 'employmentType'.
+
+    DATA MAPPING (TO YOUR JSON OUTPUT):
+    - Map Dice 'jobLocation.displayName' -> output field 'jobLocation'
+    - Map 'companyName' -> 'companyName'
+    - Map 'employmentType' -> 'employmentType'
     """;
 
     public JobSearchService(ChatClient.Builder chatClientBuilder, ToolCallbackProvider mcpTools, DiceJobRepository diceJobRepository, JobMapper jobMapper) {
@@ -48,21 +61,38 @@ public class JobSearchService {
         this.restTemplate = new RestTemplate();
 
         // Correct initialization using Spring's ParameterizedTypeReference
-        this.outputConverter = new BeanOutputConverter<>(new ParameterizedTypeReference<List<JobListing>>() {});
+        this.outputConverter = new BeanOutputConverter<>(new ParameterizedTypeReference<List<JobListing>>() {
+        });
 
         this.chatClient = chatClientBuilder
                 .defaultSystem(systemPrompt)
                 .defaultToolCallbacks(mcpTools.getToolCallbacks())
                 .defaultTools(this)
                 .build();
+
     }
 
-    public List<JobListing> searchJobs(String query) {
+    /**
+     * Use this for scheduled runs / status reporting.
+     * It performs the search + persistence and returns how many NEW jobs were saved.
+     */
+    public SearchRunSummary runSearchJobs(String query) {
+        System.out.println("invoking chat");
+        StopWatch stopWatch = new StopWatch("chat");
+        stopWatch.start("chat");
+
         List<JobListing> listings = chatClient.prompt()
                 .user(query)
                 .call()
                 .entity(outputConverter);
 
+        stopWatch.stop();
+        System.out.println("chat response " + stopWatch.prettyPrint());
+
+        System.out.println("begin saving to database");
+        stopWatch.start("save in database");
+
+        int newJobsCount = 0;
         if (listings != null) {
             List<DiceJobEntity> entities = listings.stream()
                     .filter(listing -> !diceJobRepository.existsById(listing.id()))
@@ -70,11 +100,23 @@ public class JobSearchService {
                         DiceJobEntity entity = new DiceJobEntity();
                         BeanUtils.copyProperties(listing, entity);
                         return entity;
-            }).toList();
+                    }).toList();
 
-            diceJobRepository.saveAll(entities);
+            newJobsCount = entities.size();
+            if (!entities.isEmpty()) {
+                diceJobRepository.saveAll(entities);
+            }
         }
 
+        stopWatch.stop();
+        System.out.println("finished saving to the database " + stopWatch.prettyPrint());
+
+        long totalJobsCount = diceJobRepository.count();
+        return new SearchRunSummary(query, newJobsCount, totalJobsCount);
+    }
+
+    public List<JobListing> searchJobs(String query) {
+        runSearchJobs(query);
         return getAllListings();
     }
 
