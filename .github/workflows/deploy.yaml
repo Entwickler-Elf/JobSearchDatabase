@@ -55,8 +55,8 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on:
-      group: cyclops
-      labels: self-hosted
+      - cyclops
+      - self-hosted
     steps:
       - name: Set lower case owner name
         run: |
