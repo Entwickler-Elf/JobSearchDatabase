@@ -1,3 +1,7 @@
+logging:
+  file:
+    name: jobsearchDatabase.log
+
 spring:
   application:
     name: DiceJobSearch
@@ -28,7 +32,7 @@ spring:
 server:
   port: 8080
   servlet:
-    context-path: /jobsearch
+    context-path: /jobsearch-database
 
 jobsearch:
   default-query: "
@@ -56,5 +60,5 @@ dice:
   search:
     default-query: "java spring developer remote"
     cron: "0 0 0,12 * * *"
-    time-zone: "CST"
+    time-zone: "America/Chicago"
 

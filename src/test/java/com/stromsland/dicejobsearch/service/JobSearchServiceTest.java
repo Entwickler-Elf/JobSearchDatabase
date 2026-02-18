@@ -13,7 +13,6 @@ import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,7 +42,7 @@ class JobSearchServiceTest {
     void setUp() {
         // Configure the fluent builder to return itself for every call
         lenient().when(chatClientBuilder.defaultSystem(anyString())).thenReturn(chatClientBuilder);
-        lenient().when(chatClientBuilder.defaultToolCallbacks(Collections.singletonList(any()))).thenReturn(chatClientBuilder);
+        lenient().when(chatClientBuilder.defaultToolCallbacks(any(org.springframework.ai.tool.ToolCallback[].class))).thenReturn(chatClientBuilder);
         lenient().when(chatClientBuilder.defaultTools(any())).thenReturn(chatClientBuilder);
         lenient().when(chatClientBuilder.build()).thenReturn(chatClient);
 

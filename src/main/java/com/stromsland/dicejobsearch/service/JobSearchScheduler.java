@@ -1,5 +1,6 @@
 package com.stromsland.dicejobsearch.service;
 
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,25 +10,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class JobSearchScheduler {
+    private static final Logger logger = org.slf4j.LoggerFactory.getLogger(JobSearchScheduler.class);
 
     private final JobSearchService jobSearchService;
-    private final SearchUpdateBroadcaster broadcaster;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     @Value("${dice.search.default-query:software engineer}")
     private String query;
 
-    @Value("${dice.search.time-zone:UTC}")
+    @Value("${dice.search.time-zone:America/Chicago}")
     private String timeZone;
 
-    public JobSearchScheduler(JobSearchService jobSearchService, SearchUpdateBroadcaster broadcaster) {
+    public JobSearchScheduler(JobSearchService jobSearchService) {
+        logger.info("Initializing JobSearchScheduler with query: {}", query);
         this.jobSearchService = jobSearchService;
-        this.broadcaster = broadcaster;
     }
 
     @Async
-    @Scheduled(cron = "${dice.search.cron:0 0 0,12 * * *}", zone = "${dice.search.time-zone:UTC}")
+    @Scheduled(
+            cron = "${dice.search.cron:0 5 17 * * *}",
+            zone = "${dice.search.time-zone:America/Chicago}")
     public void runSearchOnTimer() {
         if (!running.compareAndSet(false, true)) {
             return; // prevent overlapping runs
@@ -35,14 +38,13 @@ public class JobSearchScheduler {
 
         long startNs = System.nanoTime();
         try {
-            var results = jobSearchService.searchJobs(query);
+            var summary = jobSearchService.runSearchJobs(query);
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
-            broadcaster.completed(query, results == null ? 0 : results.size(), elapsedMs);
         } catch (Exception ex) {
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
-            broadcaster.failed(query, ex.getMessage(), elapsedMs);
         } finally {
             running.set(false);
+            logger.info("Finished running search jobs elapsed time{}", (System.nanoTime() - startNs) / 1_000_000);
         }
     }
 }

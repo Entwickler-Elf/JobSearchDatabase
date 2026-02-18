@@ -4,6 +4,7 @@ package com.stromsland.dicejobsearch.service;
 import com.stromsland.dicejobsearch.model.DiceJobEntity;
 import com.stromsland.dicejobsearch.model.JobListing;
 import com.stromsland.dicejobsearch.repository.DiceJobRepository;
+import org.slf4j.Logger;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.tool.ToolCallbackProvider;
@@ -20,6 +21,7 @@ import java.util.regex.Pattern;
  
 @Service
 public class JobSearchService {
+    private static final Logger logger = org.slf4j.LoggerFactory.getLogger(JobSearchService.class);
 
     public record SearchRunSummary(
             String Query,
@@ -64,6 +66,7 @@ public class JobSearchService {
         this.outputConverter = new BeanOutputConverter<>(new ParameterizedTypeReference<List<JobListing>>() {
         });
 
+        logger.info("Initializing JobSearchService with system prompt: {}", systemPrompt);
         this.chatClient = chatClientBuilder
                 .defaultSystem(systemPrompt)
                 .defaultToolCallbacks(mcpTools.getToolCallbacks())
@@ -77,23 +80,24 @@ public class JobSearchService {
      * It performs the search + persistence and returns how many NEW jobs were saved.
      */
     public SearchRunSummary runSearchJobs(String query) {
-        System.out.println("invoking chat");
+
         StopWatch stopWatch = new StopWatch("chat");
         stopWatch.start("chat");
 
+        logger.info("Running search for query: {}", query);
         List<JobListing> listings = chatClient.prompt()
                 .user(query)
                 .call()
                 .entity(outputConverter);
 
         stopWatch.stop();
-        System.out.println("chat response " + stopWatch.prettyPrint());
+        logger.info("chat response {}", stopWatch.prettyPrint());
 
-        System.out.println("begin saving to database");
         stopWatch.start("save in database");
 
         int newJobsCount = 0;
         if (listings != null) {
+            logger.info("Saving {} new jobs to the database", listings.size());
             List<DiceJobEntity> entities = listings.stream()
                     .filter(listing -> !diceJobRepository.existsById(listing.id()))
                     .map(listing -> {
@@ -136,6 +140,7 @@ public class JobSearchService {
             Pattern pattern = Pattern.compile("Dice Id:\\s*<!--\\s*-->\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
             Matcher matcher = pattern.matcher(html);
             if (matcher.find()) {
+                logger.info("Found Dice Id: {}", matcher.group(1));
                 return matcher.group(1).trim();
             }
             return "Dice Id not found on page";

@@ -1,0 +1,21 @@
+services:
+
+  app:
+    build: .
+    container_name: dice-jobsearch
+    ports:
+      - "8085:8080"
+    environment:
+      # Spring datasource placeholders used by your application.yaml
+      POSTGRES_URL: "jdbc:postgresql://192.168.86.29:5432/jobhunt?sslmode=require"
+      POSTGRES_USER: "${POSTGRES_USER:-jobhunt_user}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-tallyh0}"
+
+      # If you use Spring AI OpenAI in this app, you must provide a key
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-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}"
+
+      # Optional: tune JVM in container
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75"
+
+volumes:
+  pgdata:
