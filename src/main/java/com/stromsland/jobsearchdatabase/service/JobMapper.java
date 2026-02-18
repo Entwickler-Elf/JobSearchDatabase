@@ -1,7 +1,7 @@
-package com.stromsland.dicejobsearch.service;
+package com.stromsland.jobsearchdatabase.service;
 
-import com.stromsland.dicejobsearch.model.DiceJobEntity;
-import com.stromsland.dicejobsearch.model.JobListing;
+import com.stromsland.jobsearchdatabase.model.DiceJobEntity;
+import com.stromsland.jobsearchdatabase.model.JobListing;
 import org.springframework.stereotype.Component;
 
 @Component

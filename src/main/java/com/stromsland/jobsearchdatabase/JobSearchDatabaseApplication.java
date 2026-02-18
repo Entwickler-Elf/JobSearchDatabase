@@ -1,13 +1,13 @@
-package com.stromsland.dicejobsearch;
+package com.stromsland.jobsearchdatabase;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class DiceJobSearchApplication {
+public class JobSearchDatabaseApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(DiceJobSearchApplication.class, args);
+        SpringApplication.run(JobSearchDatabaseApplication.class, args);
     }
 
 }

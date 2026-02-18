@@ -1,9 +1,9 @@
-package com.stromsland.dicejobsearch.service;
+package com.stromsland.jobsearchdatabase.service;
 
 
-import com.stromsland.dicejobsearch.model.DiceJobEntity;
-import com.stromsland.dicejobsearch.model.JobListing;
-import com.stromsland.dicejobsearch.repository.DiceJobRepository;
+import com.stromsland.jobsearchdatabase.model.DiceJobEntity;
+import com.stromsland.jobsearchdatabase.model.JobListing;
+import com.stromsland.jobsearchdatabase.repository.DiceJobRepository;
 import org.slf4j.Logger;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.converter.BeanOutputConverter;

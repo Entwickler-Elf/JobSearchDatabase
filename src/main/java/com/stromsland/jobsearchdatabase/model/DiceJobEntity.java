@@ -1,4 +1,4 @@
-package com.stromsland.dicejobsearch.model;
+package com.stromsland.jobsearchdatabase.model;
 
 
 import jakarta.persistence.Column;

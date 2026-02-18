@@ -1,4 +1,4 @@
-package com.stromsland.dicejobsearch.config;
+package com.stromsland.jobsearchdatabase.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;

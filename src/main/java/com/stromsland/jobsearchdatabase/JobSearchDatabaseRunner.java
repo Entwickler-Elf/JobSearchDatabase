@@ -1,7 +1,7 @@
-package com.stromsland.dicejobsearch;
+package com.stromsland.jobsearchdatabase;
 
-import com.stromsland.dicejobsearch.model.JobListing;
-import com.stromsland.dicejobsearch.service.JobSearchService;
+import com.stromsland.jobsearchdatabase.model.JobListing;
+import com.stromsland.jobsearchdatabase.service.JobSearchService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -11,13 +11,13 @@ import java.util.List;
 
 @Component
 @ConditionalOnProperty(name = "jobsearch.runner.enabled", havingValue = "true")
-public class DiceJobSearchRunner implements CommandLineRunner {
+public class JobSearchDatabaseRunner implements CommandLineRunner {
 
     private final JobSearchService jobSearchService;
     private final String defaultQuery;
 
-    public DiceJobSearchRunner(JobSearchService jobSearchService,
-                               @Value("${jobsearch.default-query}") String defaultQuery) {
+    public JobSearchDatabaseRunner(JobSearchService jobSearchService,
+                                   @Value("${jobsearch.default-query}") String defaultQuery) {
         this.jobSearchService = jobSearchService;
         this.defaultQuery = defaultQuery;
     }

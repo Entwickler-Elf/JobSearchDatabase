@@ -4,7 +4,7 @@ logging:
 
 spring:
   application:
-    name: DiceJobSearch
+    name: JobSearchDatabase
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}

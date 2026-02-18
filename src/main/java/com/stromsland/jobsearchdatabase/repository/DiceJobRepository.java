@@ -1,6 +1,6 @@
-package com.stromsland.dicejobsearch.repository;
+package com.stromsland.jobsearchdatabase.repository;
 
-import com.stromsland.dicejobsearch.model.DiceJobEntity;
+import com.stromsland.jobsearchdatabase.model.DiceJobEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,4 +1,4 @@
-package com.stromsland.dicejobsearch.service;
+package com.stromsland.jobsearchdatabase.service;
 
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
