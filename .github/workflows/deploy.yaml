@@ -6,6 +6,7 @@ on:
       - main
 
 env:
+  DOCKER_CONTAINER: dice-jobsearch
   JAVA_VERSION: '21'
   REGISTRY: ghcr.io
   IMAGE_TAG: 0.0.1-SNAPSHOT
@@ -79,14 +80,14 @@ jobs:
 
       - name: Stop and remove existing container
         run: |
-          docker stop phoenix-java || true
-          docker rm phoenix-java || true
+          docker stop ${{ env.DOCKER_CONTAINER }} || true
+          docker rm ${{ env.DOCKER_CONTAINER }} || true
 
 
       - name: Run new container
         run: |
           docker run -d \
-            --name phoenix-java \
+            --name ${{ env.DOCKER_CONTAINER }} \
             --restart always \
             --network ${{ env.DOCKER_NETWORK }} \
             -e SPRING_PROFILES_ACTIVE=dev \
