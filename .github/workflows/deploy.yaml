@@ -6,7 +6,7 @@ on:
       - master
 
 env:
-  DOCKER_CONTAINER: dice-jobsearch
+  DOCKER_CONTAINER: jobsearch-database
   JAVA_VERSION: '21'
   REGISTRY: ghcr.io
   IMAGE_TAG: 0.0.1-SNAPSHOT
@@ -62,11 +62,11 @@ jobs:
         run: |
           echo "IMAGE_NAME=$(echo ${{ env.REGISTRY }}/${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Create Docker Network
-        run: |
-          docker network create ${{ env.DOCKER_NETWORK }} || true
-          # Connect the existing angular container to the new network if it isn't already
-          docker network connect ${{ env.DOCKER_NETWORK }} phoenix-angular || true
+#      - name: Create Docker Network
+#        run: |
+#          docker network create ${{ env.DOCKER_NETWORK }} || true
+#          # Connect the existing angular container to the new network if it isn't already
+#          docker network connect ${{ env.DOCKER_NETWORK }} phoenix-angular || true
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -97,8 +97,8 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
           sleep 5
-          if [ "$(docker inspect -f '{{.State.Running}}' phoenix-java)" != "true" ]; then
-            docker logs phoenix-java
+          if [ "$(docker inspect -f '{{.State.Running}}' jobsearch-database)" != "true" ]; then
+            docker logs jobsearch-database
             exit 1
           fi
 
