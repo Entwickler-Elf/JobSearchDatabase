@@ -21,7 +21,7 @@ jobs:
     outputs:
       image_ref: ${{ steps.meta.outputs.image_ref }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Compute image ref (lowercase)
         id: meta
@@ -31,7 +31,7 @@ jobs:
           echo "image_ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5.1.0
         with:
           java-version: "21"
           distribution: "temurin"
@@ -56,21 +56,27 @@ jobs:
           CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
           CYCLOPS_SSH_KEY: ${{ secrets.CYCLOPS_SSH_KEY }}
         run: |
-          set -euo pipefail
+          docker stop ${{ env.DOCKER_CONTAINER }} || true
+          docker rm ${{ env.DOCKER_CONTAINER }} || true
 
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "$CYCLOPS_SSH_KEY" > ~/.ssh/cyclops_key
-          chmod 600 ~/.ssh/cyclops_key
 
-          ssh -i ~/.ssh/cyclops_key -o StrictHostKeyChecking=accept-new "$CYCLOPS_USER@$CYCLOPS_HOST" "
-            set -euo pipefail
-            docker pull '$IMAGE_REF'
-            docker stop '${CONTAINER_NAME}' || true
-            docker rm '${CONTAINER_NAME}' || true
-            docker run -d \
-              --name '${CONTAINER_NAME}' \
-              --restart always \
-              -p '${HOST_PORT}:${CONTAINER_PORT}' \
-              '$IMAGE_REF'
-          "
+      - name: Run new container
+        run: |
+          docker run -d \
+            --name ${{ env.DOCKER_CONTAINER }} \
+            --restart always \
+            --network ${{ env.DOCKER_NETWORK }} \
+            -e SPRING_PROFILES_ACTIVE=dev \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/jobhunt \
+            -e SPRING_DATASOURCE_USERNAME=${{ secrets.POSTGRES_USER }} \
+            -e SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+          sleep 5
+          if [ "$(docker inspect -f '{{.State.Running}}' jobsearch-database)" != "true" ]; then
+            docker logs jobsearch-database
+            exit 1
+          fi
+
+      - name: Cleanup old images
+        run: docker image prune -f
