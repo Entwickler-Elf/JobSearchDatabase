@@ -55,6 +55,12 @@ jobs:
           docker stop "${{ env.CONTAINER_NAME }}" || true
           docker rm "${{ env.CONTAINER_NAME }}" || true
 
+      - name: Pull image
+        env:
+          IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
+        run: |
+          docker pull "${IMAGE_REF}"          
+
       - name: Deploy on cyclops via SSH
         env:
           IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
