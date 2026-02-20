@@ -49,6 +49,8 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: self-hosted
+    env:
+      IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
     steps:
       - name: Stop and remove existing container
         run: |
@@ -60,13 +62,6 @@ jobs:
           IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
         run: |
           docker pull "${IMAGE_REF}"          
-
-      - name: Deploy on cyclops via SSH
-        env:
-          IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
-        run: |
-          docker pull "${IMAGE_REF}"
-
 
       - name: Run new container
         run: |
