@@ -47,8 +47,7 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on:
-      - self-hosted
+    runs-on: self-hosted
     steps:
       - name: Deploy on cyclops via SSH
         env:
