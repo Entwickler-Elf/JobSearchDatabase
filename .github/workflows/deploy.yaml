@@ -21,7 +21,7 @@ jobs:
     outputs:
       image_ref: ${{ steps.meta.outputs.image_ref }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v5
 
       - name: Compute image ref (lowercase)
         id: meta
@@ -56,16 +56,16 @@ jobs:
           CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
           CYCLOPS_SSH_KEY: ${{ secrets.CYCLOPS_SSH_KEY }}
         run: |
-          docker stop ${{ env.DOCKER_CONTAINER }} || true
-          docker rm ${{ env.DOCKER_CONTAINER }} || true
+          docker stop ${{ env.CONTAINER_NAME }} || true
+          docker rm ${{ env.CONTAINER_NAME }} || true
 
 
       - name: Run new container
         run: |
           docker run -d \
-            --name ${{ env.DOCKER_CONTAINER }} \
+            --name ${{ env.CONTAINER_NAME }} \
             --restart always \
-            --network ${{ env.DOCKER_NETWORK }} \
+#            --network ${{ env.DOCKER_NETWORK }} \
             -e SPRING_PROFILES_ACTIVE=dev \
             -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/jobhunt \
             -e SPRING_DATASOURCE_USERNAME=${{ secrets.POSTGRES_USER }} \
