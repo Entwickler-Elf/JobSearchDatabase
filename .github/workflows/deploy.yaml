@@ -49,15 +49,16 @@ jobs:
     needs: build-and-push
     runs-on: self-hosted
     steps:
+      - name: Stop and remove existing container
+        run: |
+          docker stop "${{ env.CONTAINER_NAME }}" || true
+          docker rm "${{ env.CONTAINER_NAME }}" || true
+
       - name: Deploy on cyclops via SSH
         env:
           IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
-          CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
-          CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
-          CYCLOPS_SSH_KEY: ${{ secrets.CYCLOPS_SSH_KEY }}
         run: |
-          docker stop ${{ env.CONTAINER_NAME }} || true
-          docker rm ${{ env.CONTAINER_NAME }} || true
+          docker pull "${IMAGE_REF}"
 
 
       - name: Run new container
@@ -67,10 +68,10 @@ jobs:
             --restart always \
 #            --network ${{ env.DOCKER_NETWORK }} \
             -e SPRING_PROFILES_ACTIVE=dev \
-            -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/jobhunt \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://${{ secrets.POSTGRES_HOST }}:5432/jobhunt \
             -e SPRING_DATASOURCE_USERNAME=${{ secrets.POSTGRES_USER }} \
             -e SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            "${IMAGE_REF}"
 
           sleep 5
           if [ "$(docker inspect -f '{{.State.Running}}' jobsearch-database)" != "true" ]; then
