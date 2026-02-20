@@ -73,18 +73,31 @@ jobs:
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
+         set -euo pipefail
+          
+          # Key check (fails fast; no password prompts)
+          ssh -i ~/.ssh/cyclops_key \
+          -o PreferredAuthentications=publickey \
+          -o PasswordAuthentication=no \
+          -o BatchMode=yes \
+          "$CYCLOPS_USER@$CYCLOPS_HOST" "echo ok"
+          
+          # Pull on cyclops
+          ssh -i ~/.ssh/cyclops_key \
+          -o PreferredAuthentications=publickey \
+          -o PasswordAuthentication=no \
+          -o BatchMode=yes \
+          "$CYCLOPS_USER@$CYCLOPS_HOST" \
+          GHCR_USERNAME="$GHCR_USERNAME" GHCR_TOKEN="$GHCR_TOKEN" IMAGE_REF="$IMAGE_REF" \
+          bash -lc '
           set -euo pipefail
-          ssh -i ~/.ssh/cyclops_key "$CYCLOPS_USER@$CYCLOPS_HOST" bash -lc "
-            set -euo pipefail
-
-            # Optional: only needed if the image is private and cyclops isn't already logged in.
-            if [ -n '${GHCR_USERNAME:-}' ] && [ -n '${GHCR_TOKEN:-}' ]; then
-              echo '${GHCR_TOKEN}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin
-            fi
-
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-            docker pull "$IMAGE_REF"
-          "
+          
+          if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+          fi
+          
+          docker pull "$IMAGE_REF"
+         '
       # -----------------------------------------------
       # Start container on cyclops (create net + run app)
       # -----------------------------------------------
