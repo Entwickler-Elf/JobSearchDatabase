@@ -65,6 +65,13 @@ jobs:
 
       - name: Run new container
         run: |
+          if [ -n "${DOCKER_NETWORK:-}" ]; then
+            docker network inspect "${DOCKER_NETWORK}" >/dev/null 2>&1 || docker network create "${DOCKER_NETWORK}"
+            NET_ARGS=(--network "${DOCKER_NETWORK}")
+          else
+            NET_ARGS=()
+          fi
+          
           docker run -d \
             --name ${{ env.CONTAINER_NAME }} \
             --restart always \
