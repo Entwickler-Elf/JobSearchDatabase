@@ -102,7 +102,8 @@ jobs:
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
           fi
           
-          docker pull "$IMAGE_REF" REMOTE
+          docker pull "$IMAGE_REF" 
+          REMOTE
 
       # -----------------------------------------------
       # Start container on cyclops (create net + run app)
