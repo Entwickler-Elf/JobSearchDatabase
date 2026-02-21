@@ -2,7 +2,7 @@ name: Build, Push, Deploy
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
 
 env:
   REGISTRY: ghcr.io
@@ -49,126 +49,126 @@ jobs:
     # ... existing code ...
 
   deploy:
-      needs: build-and-push
-      runs-on: self-hosted
-      env:
-        IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
-      steps:
-        - name: Prepare SSH key for cyclops
-          env:
-            CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
-            CYCLOPS_SSH_KEY: ${{ secrets.CYCLOPS_SSH_KEY }}
-          run: |
-            set -euo pipefail
-            mkdir -p ~/.ssh
-            chmod 700 ~/.ssh
-            echo "$CYCLOPS_SSH_KEY" > ~/.ssh/cyclops_key
-            chmod 600 ~/.ssh/cyclops_key
-            ssh-keyscan -H "$CYCLOPS_HOST" >> ~/.ssh/known_hosts
+    needs: build-and-push
+    runs-on: self-hosted
+    env:
+      IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
+    steps:
+      - name: Prepare SSH key for cyclops
+        env:
+          CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
+          CYCLOPS_SSH_KEY: ${{ secrets.CYCLOPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$CYCLOPS_SSH_KEY" > ~/.ssh/cyclops_key
+          chmod 600 ~/.ssh/cyclops_key
+          ssh-keyscan -H "$CYCLOPS_HOST" >> ~/.ssh/known_hosts
 
-        - name: Verify SSH connectivity to cyclops
-          env:
-            CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
-            CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
-          run: |
-            set -euo pipefail
-            ssh -i ~/.ssh/cyclops_key \
-              -o PreferredAuthentications=publickey \
-              -o PasswordAuthentication=no \
-              -o BatchMode=yes \
-              "$CYCLOPS_USER@$CYCLOPS_HOST" "echo SSH_OK"
+      - name: Verify SSH connectivity to cyclops
+        env:
+          CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
+          CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/cyclops_key \
+            -o PreferredAuthentications=publickey \
+            -o PasswordAuthentication=no \
+            -o BatchMode=yes \
+            "$CYCLOPS_USER@$CYCLOPS_HOST" "echo SSH_OK"
 
-        # -----------------------------
-        # Deploy to cyclops (pull image)
-        # -----------------------------
-        - name: Deploy to cyclops - pull image
-          env:
-            CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
-            CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
-            GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-            GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          run: |
-            set -euo pipefail
+      # -----------------------------
+      # Deploy to cyclops (pull image)
+      # -----------------------------
+      - name: Deploy to cyclops - pull image
+        env:
+          CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
+          CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          ssh -i ~/.ssh/cyclops_key \
+            -o PreferredAuthentications=publickey \
+            -o PasswordAuthentication=no \
+            -o BatchMode=yes \
+            "$CYCLOPS_USER@$CYCLOPS_HOST" \
+            GHCR_USERNAME="$GHCR_USERNAME" GHCR_TOKEN="$GHCR_TOKEN" IMAGE_REF="$IMAGE_REF" \
+            bash -s <<'REMOTE'
+          set -euo pipefail
+          
+          if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+          fi
+          
+          docker pull "$IMAGE_REF"
+          REMOTE
 
-            ssh -i ~/.ssh/cyclops_key \
-              -o PreferredAuthentications=publickey \
-              -o PasswordAuthentication=no \
-              -o BatchMode=yes \
-              "$CYCLOPS_USER@$CYCLOPS_HOST" \
-              GHCR_USERNAME="$GHCR_USERNAME" GHCR_TOKEN="$GHCR_TOKEN" IMAGE_REF="$IMAGE_REF" \
-              bash -s <<'REMOTE'
-            set -euo pipefail
+      # -----------------------------------------------
+      # Start container on cyclops (create net + run app)
+      # -----------------------------------------------
+      - name: Start container on cyclops
+        env:
+          CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
+          CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          set -euo pipefail
+          
+          ssh -i ~/.ssh/cyclops_key \
+            -o PreferredAuthentications=publickey \
+            -o PasswordAuthentication=no \
+            -o BatchMode=yes \
+            "$CYCLOPS_USER@$CYCLOPS_HOST" \
+            IMAGE_REF="$IMAGE_REF" \
+            CONTAINER_NAME="${{ env.CONTAINER_NAME }}" \
+            DOCKER_NETWORK="${{ env.DOCKER_NETWORK }}" \
+            HOST_PORT="${{ env.HOST_PORT }}" \
+            CONTAINER_PORT="${{ env.CONTAINER_PORT }}" \
+            POSTGRES_HOST="$POSTGRES_HOST" \
+            POSTGRES_USER="$POSTGRES_USER" \
+            POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+            bash -s <<'REMOTE'
+          set -euo pipefail
+          
+          docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
+          
+          docker stop "$CONTAINER_NAME" || true
+          docker rm "$CONTAINER_NAME" || true
+          
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            --restart always \
+            --network "$DOCKER_NETWORK" \
+            -p "$HOST_PORT:$CONTAINER_PORT" \
+            -e SPRING_PROFILES_ACTIVE=dev \
+            -e SPRING_DATASOURCE_URL="jdbc:postgresql://${POSTGRES_HOST}:5432/jobhunt" \
+            -e SPRING_DATASOURCE_USERNAME="${POSTGRES_USER}" \
+            -e SPRING_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
+            "$IMAGE_REF"
+          
+          sleep 5
+          if [ "$(docker inspect -f "{{.State.Running}}" "$CONTAINER_NAME")" != "true" ]; then
+            docker logs "$CONTAINER_NAME" | tail -200
+            exit 1
+          fi
+          REMOTE
 
-            if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
-              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-            fi
+      - name: Cleanup old images (on cyclops)
+        env:
+          CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
+          CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/cyclops_key \
+            -o PreferredAuthentications=publickey \
+            -o PasswordAuthentication=no \
+            -o BatchMode=yes \
+            "$CYCLOPS_USER@$CYCLOPS_HOST" \
+            bash -lc 'docker image prune -f'
 
-            docker pull "$IMAGE_REF"
-           REMOTE
-
-        # -----------------------------------------------
-        # Start container on cyclops (create net + run app)
-        # -----------------------------------------------
-        - name: Start container on cyclops
-          env:
-            CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
-            CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
-            POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
-            POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-            POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          run: |
-            set -euo pipefail
-            
-            ssh -i ~/.ssh/cyclops_key \
-              -o PreferredAuthentications=publickey \
-              -o PasswordAuthentication=no \
-              -o BatchMode=yes \
-              "$CYCLOPS_USER@$CYCLOPS_HOST" \
-              IMAGE_REF="$IMAGE_REF" \
-              CONTAINER_NAME="${{ env.CONTAINER_NAME }}" \
-              DOCKER_NETWORK="${{ env.DOCKER_NETWORK }}" \
-              HOST_PORT="${{ env.HOST_PORT }}" \
-              CONTAINER_PORT="${{ env.CONTAINER_PORT }}" \
-              POSTGRES_HOST="$POSTGRES_HOST" \
-              POSTGRES_USER="$POSTGRES_USER" \
-              POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-              bash -s <<'REMOTE'
-            set -euo pipefail
-            
-            docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
-            
-            docker stop "$CONTAINER_NAME" || true
-            docker rm "$CONTAINER_NAME" || true
-            
-            docker run -d \
-              --name "$CONTAINER_NAME" \
-              --restart always \
-              --network "$DOCKER_NETWORK" \
-              -p "$HOST_PORT:$CONTAINER_PORT" \
-              -e SPRING_PROFILES_ACTIVE=dev \
-              -e SPRING_DATASOURCE_URL="jdbc:postgresql://${POSTGRES_HOST}:5432/jobhunt" \
-              -e SPRING_DATASOURCE_USERNAME="${POSTGRES_USER}" \
-              -e SPRING_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
-              "$IMAGE_REF"
-            
-            sleep 5
-            if [ "$(docker inspect -f "{{.State.Running}}" "$CONTAINER_NAME")" != "true" ]; then
-              docker logs "$CONTAINER_NAME" | tail -200
-              exit 1
-            fi
-           REMOTE
-
-        - name: Cleanup old images (on cyclops)
-          env:
-            CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
-            CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
-          run: |
-            set -euo pipefail
-            ssh -i ~/.ssh/cyclops_key \
-              -o PreferredAuthentications=publickey \
-              -o PasswordAuthentication=no \
-              -o BatchMode=yes \
-              "$CYCLOPS_USER@$CYCLOPS_HOST" \
-              bash -lc 'docker image prune -f'
-
-        # ... existing code ...
+      # ... existing code ...
