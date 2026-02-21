@@ -1,0 +1,4 @@
+place in ~/.mvn/měn.config
+-Dflyway.password=tallyh0
+-Dflyway.url=jdbc:postgresql://localhost:5432/jobhunt
+-Dflyway.user=jobhunt_user
