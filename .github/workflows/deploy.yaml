@@ -104,7 +104,7 @@ jobs:
             fi
 
             docker pull "$IMAGE_REF"
-REMOTE
+           REMOTE
 
         # -----------------------------------------------
         # Start container on cyclops (create net + run app)
