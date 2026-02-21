@@ -52,6 +52,10 @@ jobs:
     env:
       IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
     steps:
+      - name: Verify SSH connectivity to cyclops
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o PasswordAuthentication=no cyclops "echo SSH_OK"
       - name: Prepare SSH key for cyclops
         env:
           CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
