@@ -52,6 +52,18 @@ jobs:
     env:
       IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
     steps:
+      - name: Prepare SSH key for cyclops
+        env:
+          CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
+          CYCLOPS_SSH_KEY: ${{ secrets.CYCLOPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$CYCLOPS_SSH_KEY" > ~/.ssh/cyclops_key
+          chmod 600 ~/.ssh/cyclops_key
+          ssh-keyscan -H "$CYCLOPS_HOST" >> ~/.ssh/known_hosts
+
       - name: Verify SSH connectivity to cyclops
         run: |
           set -euo pipefail
@@ -73,35 +85,25 @@ jobs:
       - name: Deploy to cyclops - pull image
         env:
           CYCLOPS_HOST: ${{ secrets.CYCLOPS_HOST }}
-          CYCLOPS_USER: ${{ secrets.CYCLOPS_USER }}
+          CYCLOPS_SSH_KEY: ${{ secrets.CYCLOPS_SSH_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
-         set -euo pipefail
-          
-          # Key check (fails fast; no password prompts)
           ssh -i ~/.ssh/cyclops_key \
-          -o PreferredAuthentications=publickey \
-          -o PasswordAuthentication=no \
-          -o BatchMode=yes \
-          "$CYCLOPS_USER@$CYCLOPS_HOST" "echo ok"
-          
-          # Pull on cyclops
-          ssh -i ~/.ssh/cyclops_key \
-          -o PreferredAuthentications=publickey \
-          -o PasswordAuthentication=no \
-          -o BatchMode=yes \
-          "$CYCLOPS_USER@$CYCLOPS_HOST" \
-          GHCR_USERNAME="$GHCR_USERNAME" GHCR_TOKEN="$GHCR_TOKEN" IMAGE_REF="$IMAGE_REF" \
-          bash -lc '
+            -o PreferredAuthentications=publickey \
+            -o PasswordAuthentication=no \
+            -o BatchMode=yes \
+            "$CYCLOPS_USER@$CYCLOPS_HOST" \
+            GHCR_USERNAME="$GHCR_USERNAME" GHCR_TOKEN="$GHCR_TOKEN" IMAGE_REF="$IMAGE_REF" \
+            bash -s <<'REMOTE'
           set -euo pipefail
           
           if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
           fi
           
-          docker pull "$IMAGE_REF"
-         '
+          docker pull "$IMAGE_REF" REMOTE
+
       # -----------------------------------------------
       # Start container on cyclops (create net + run app)
       # -----------------------------------------------
