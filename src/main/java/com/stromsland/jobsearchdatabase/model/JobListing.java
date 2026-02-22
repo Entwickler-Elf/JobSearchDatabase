@@ -3,7 +3,7 @@ package com.stromsland.jobsearchdatabase.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record JobListing(
-        String id,
+        Long id,
         String title,
         String summary,
         String companyName,

@@ -1,13 +1,13 @@
 package com.stromsland.jobsearchdatabase.service;
 
-import com.stromsland.jobsearchdatabase.model.DiceJobEntity;
 import com.stromsland.jobsearchdatabase.model.JobListing;
+import com.stromsland.jobsearchdatabase.model.JobListingsEntity;
 import org.springframework.stereotype.Component;
 
 @Component
 public class JobMapper {
 
-    public JobListing toListing(DiceJobEntity entity) {
+    public JobListing toListing(JobListingsEntity entity) {
         return new JobListing(
                 entity.getId(),
                 entity.getTitle(),

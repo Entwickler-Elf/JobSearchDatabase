@@ -45,15 +45,7 @@ jobsearch:
   ** Positions in or within 120 miles to Huntsville may be onsite or hybrid or remote.
   ** Positions that are not within 120 miles of Huntsville must be fully remote.
   ** W2 Contract work is preferred, full-time and part-time work are acceptable.
-  Report possible positions that have a posted date no more than 7 days old. "
-#  default-query: "
-#  I am looking for a java software developer position. It may contain Angular, it may contain
-#   Angular and React but it will not include React without the presence of Angular.
-#  ** The position will require experience any of  java, spring boot, postgreSQL.
-#  ** It must be in Huntsville, AL.
-#  ** must not require active security clearance or active top secret security clearance in order to apply.
-#  ** W2 Contract work is preferred, full-time and part-time work are acceptable.
-#  Report possible positions that have a posted date no more than 7 days old. "
+  Report possible positions that have a posted date no more than 31 days old. "
   runner:
     enabled: false
 

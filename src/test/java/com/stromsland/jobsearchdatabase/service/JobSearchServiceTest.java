@@ -1,8 +1,9 @@
 package com.stromsland.jobsearchdatabase.service;
 
-import com.stromsland.jobsearchdatabase.model.DiceJobEntity;
 import com.stromsland.jobsearchdatabase.model.JobListing;
-import com.stromsland.jobsearchdatabase.repository.DiceJobRepository;
+import com.stromsland.jobsearchdatabase.model.JobListingsEntity;
+import com.stromsland.jobsearchdatabase.repository.JobListingsRepository;
+import com.stromsland.jobsearchdatabase.repository.ScanRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,7 +25,9 @@ import static org.mockito.Mockito.*;
 class JobSearchServiceTest {
 
     @Mock
-    private DiceJobRepository diceJobRepository;
+    private JobListingsRepository jobListingsRepository;
+    @Mock
+    private ScanRepository scanRepository;
     @Mock
     private JobMapper jobMapper;
     @Mock
@@ -49,7 +52,7 @@ class JobSearchServiceTest {
         // Ensure mcpTools doesn't return null if the constructor calls it
         lenient().when(mcpTools.getToolCallbacks()).thenReturn(new org.springframework.ai.tool.ToolCallback[0]);
 
-        jobSearchService = new JobSearchService(chatClientBuilder, mcpTools, diceJobRepository, jobMapper);
+        jobSearchService = new JobSearchService(chatClientBuilder, mcpTools, jobListingsRepository, scanRepository, jobMapper);
 
         ReflectionTestUtils.setField(jobSearchService, "restTemplate", restTemplate);
     }
@@ -57,10 +60,10 @@ class JobSearchServiceTest {
     @Test
     void getAllListings_ShouldReturnSortedAndMappedListings() {
         // Arrange
-        DiceJobEntity entity = new DiceJobEntity();
-        JobListing listing = new JobListing("1", "Title", "Sum", "Co", "Loc", "URL", "C-URL", "Sal", "Type", "Work", "Date", true, true, false,"Dice-1");
+        JobListingsEntity entity = new JobListingsEntity();
+        JobListing listing = new JobListing(1L, "Title", "Sum", "Co", "Loc", "URL", "C-URL", "Sal", "Type", "Work", "Date", true, true, false,"Dice-1");
 
-        when(diceJobRepository.findAllByOrderByPostedDateDesc()).thenReturn(List.of(entity));
+        when(jobListingsRepository.findAllByOrderByPostedDateDesc()).thenReturn(List.of(entity));
         when(jobMapper.toListing(entity)).thenReturn(listing);
 
         // Act
@@ -69,7 +72,7 @@ class JobSearchServiceTest {
         // Assert
         assertEquals(1, results.size());
         assertEquals("Title", results.getFirst().title());
-        verify(diceJobRepository).findAllByOrderByPostedDateDesc();
+        verify(jobListingsRepository).findAllByOrderByPostedDateDesc();
         verify(jobMapper).toListing(entity);
     }
 

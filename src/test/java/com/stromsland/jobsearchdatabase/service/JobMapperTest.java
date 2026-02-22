@@ -1,11 +1,13 @@
 package com.stromsland.jobsearchdatabase.service;
 
-import com.stromsland.jobsearchdatabase.model.DiceJobEntity;
 import com.stromsland.jobsearchdatabase.model.JobListing;
+import com.stromsland.jobsearchdatabase.model.JobListingsEntity;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class JobMapperTest {
 
@@ -19,20 +21,7 @@ class JobMapperTest {
     @Test
     void toListing_ShouldMapAllFieldsCorrectly() {
         // Arrange
-        DiceJobEntity entity = new DiceJobEntity();
-        entity.setId("test-id");
-        entity.setTitle("Software Engineer");
-        entity.setSummary("Great job");
-        entity.setCompanyName("Tech Corp");
-        entity.setJobLocation("Remote");
-        entity.setDetailsPageUrl("http://details.com");
-        entity.setCompanyPageUrl("http://company.com");
-        entity.setSalary("$100k");
-        entity.setEmploymentType("Full-time");
-        entity.setWorkplaceTypes("Remote");
-        entity.setPostedDate("2026-01-20");
-        entity.setEasyApply(true);
-        entity.setDiceId("dice-123");
+        JobListingsEntity entity = getJobListingsEntity();
 
         // Act
         JobListing listing = jobMapper.toListing(entity);
@@ -52,5 +41,23 @@ class JobMapperTest {
         assertEquals(entity.getPostedDate(), listing.postedDate());
         assertEquals(entity.isEasyApply(), listing.easyApply());
         assertEquals(entity.getDiceId(), listing.diceId());
+    }
+
+    private static @NonNull JobListingsEntity getJobListingsEntity() {
+        JobListingsEntity entity = new JobListingsEntity();
+        entity.setId(1L);
+        entity.setTitle("Software Engineer");
+        entity.setSummary("Great job");
+        entity.setCompanyName("Tech Corp");
+        entity.setJobLocation("Remote");
+        entity.setDetailsPageUrl("http://details.com");
+        entity.setCompanyPageUrl("http://company.com");
+        entity.setSalary("$100k");
+        entity.setEmploymentType("Full-time");
+        entity.setWorkplaceTypes("Remote");
+        entity.setPostedDate("2026-01-20");
+        entity.setEasyApply(true);
+        entity.setDiceId("dice-123");
+        return entity;
     }
 }

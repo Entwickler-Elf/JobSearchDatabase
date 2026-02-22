@@ -1,9 +1,10 @@
 package com.stromsland.jobsearchdatabase.service;
 
-
-import com.stromsland.jobsearchdatabase.model.DiceJobEntity;
 import com.stromsland.jobsearchdatabase.model.JobListing;
-import com.stromsland.jobsearchdatabase.repository.DiceJobRepository;
+import com.stromsland.jobsearchdatabase.model.JobListingsEntity;
+import com.stromsland.jobsearchdatabase.model.ScanEntity;
+import com.stromsland.jobsearchdatabase.repository.JobListingsRepository;
+import com.stromsland.jobsearchdatabase.repository.ScanRepository;
 import org.slf4j.Logger;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.converter.BeanOutputConverter;
@@ -15,76 +16,127 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
- 
+
 @Service
 public class JobSearchService {
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(JobSearchService.class);
 
     public record SearchRunSummary(
-            String Query,
+            String query,
             int newJobsCount,
             long totalJobsCount
     ) { }
 
     private final ChatClient chatClient;
     private final RestTemplate restTemplate;
-    // Use TypeReference to properly handle the List of Records
     private final BeanOutputConverter<List<JobListing>> outputConverter;
     private final JobMapper jobMapper;
-    private final DiceJobRepository diceJobRepository;
+
+    private final JobListingsRepository jobListingsRepository;
+    private final ScanRepository scanRepository;
 
     private final String systemPrompt = """
-    You are a job search assistant.
+You are a job search assistant integrated with external tools.
 
-    IMPORTANT TOOL SCHEMA RULES (MUST FOLLOW):
-    - When calling the Dice tool 'search_jobs', DO NOT request 'jobLocation' in the 'fields' list.
-    - The allowed location field is 'jobLocation.displayName' (use that exact string).
+Your job:
+- Call the Dice MCP tool `search_jobs` to retrieve job listings.
+- Return results as JSON that can be parsed into `List<JobListing>`.
 
-    WORKFLOW:
-    1. Search for jobs using 'search_jobs' with the user's query.
-       - When you call 'search_jobs', include fields that match the tool schema, including:
-         id, title, summary, companyName, jobLocation.displayName, detailsPageUrl, companyPageUrl,
-         salary, employmentType, workplaceTypes, postedDate, easyApply
-    2. For the FIRST result, use 'fetchDiceId' with the 'detailsPageUrl'.
-    3. Include that ID in the 'diceId' field of your response.
+CRITICAL TOOL-CALL RULES (MUST FOLLOW EXACTLY)
+1) NEVER send null / None to any tool parameter.
+   - If you don't have a value, OMIT the parameter entirely OR use an explicit safe default as defined below.
+   - Do not send keys with null values.
 
-    DATA MAPPING (TO YOUR JSON OUTPUT):
-    - Map Dice 'jobLocation.displayName' -> output field 'jobLocation'
-    - Map 'companyName' -> 'companyName'
-    - Map 'employmentType' -> 'employmentType'
-    """;
+2) `search_jobs` parameters MUST be valid types:
+   - radius: number (float/int) -> ALWAYS provide a number (use default below if user didn’t specify)
+   - radius_unit: string -> ALWAYS provide a string (use default below if user didn’t specify)
+   - employer_types: list -> ALWAYS provide a list (empty list is OK)
+   - willing_to_sponsor: boolean -> ALWAYS provide true/false
+   - easy_apply: boolean -> ALWAYS provide true/false
+   - fields: list of strings -> ALWAYS provide a non-empty list
 
-    public JobSearchService(ChatClient.Builder chatClientBuilder, ToolCallbackProvider mcpTools, DiceJobRepository diceJobRepository, JobMapper jobMapper) {
+3) FIELD SELECTION RULE:
+   - When calling `search_jobs`, DO NOT request `jobLocation` in the `fields` list.
+   - The allowed location field is exactly `jobLocation.displayName`.
+
+SAFE DEFAULTS (use these when the user does not specify)
+- radius: 120
+- radius_unit: "miles"
+- employer_types: []
+- willing_to_sponsor: false
+- easy_apply: false
+
+WORKFLOW
+A) Call `search_jobs` with:
+   - query: the user's query text (string)
+   - radius, radius_unit, employer_types, willing_to_sponsor, easy_apply, fields (all present, using defaults if needed)
+   - fields MUST include at least:
+     - "id"
+     - "title"
+     - "summary"
+     - "companyName"
+     - "jobLocation.displayName"
+     - "detailsPageUrl"
+     - "companyPageUrl"
+     - "salary"
+     - "employmentType"
+     - "workplaceTypes"
+     - "postedDate"
+     - "easyApply"
+
+B) After receiving results, for the FIRST result only:
+   - Call the tool `fetchDiceId` with the job's `detailsPageUrl`.
+   - Put the returned value into `diceId` for that first item.
+   - For other items, set `diceId` to an empty string "" (NOT null).
+
+OUTPUT REQUIREMENTS (what you return to the application)
+- Return ONLY valid JSON (no markdown, no prose).
+- The output must be a JSON array of objects matching `JobListing`.
+- Mapping rule:
+  - Map Dice "jobLocation.displayName" -> output field "jobLocation"
+- No nulls in output. Use empty strings "" for unknown text fields and false for booleans.
+
+QUALITY FILTERS (apply if user didn’t ask otherwise)
+- Prefer jobs posted within the last 7 days when `postedDate` allows it.
+- Prefer roles matching the query keywords.
+
+Remember:
+- Do not include any tool parameter with null/None.
+- Always include `fields` as a real list, never null.
+""";
+
+    public JobSearchService(
+            ChatClient.Builder chatClientBuilder,
+            ToolCallbackProvider mcpTools,
+            JobListingsRepository jobListingsRepository,
+            ScanRepository scanRepository,
+            JobMapper jobMapper
+    ) {
         this.jobMapper = jobMapper;
-        this.diceJobRepository = diceJobRepository;
+        this.jobListingsRepository = jobListingsRepository;
+        this.scanRepository = scanRepository;
+
         this.restTemplate = new RestTemplate();
+        this.outputConverter = new BeanOutputConverter<>(new ParameterizedTypeReference<List<JobListing>>() {});
 
-        // Correct initialization using Spring's ParameterizedTypeReference
-        this.outputConverter = new BeanOutputConverter<>(new ParameterizedTypeReference<List<JobListing>>() {
-        });
-
-        logger.info("Initializing JobSearchService with system prompt: {}", systemPrompt);
         this.chatClient = chatClientBuilder
                 .defaultSystem(systemPrompt)
                 .defaultToolCallbacks(mcpTools.getToolCallbacks())
                 .defaultTools(this)
                 .build();
-
     }
 
-    /**
-     * Use this for scheduled runs / status reporting.
-     * It performs the search + persistence and returns how many NEW jobs were saved.
-     */
     public SearchRunSummary runSearchJobs(String query) {
+        logger.info("Running search for query: {}", query);
 
-        StopWatch stopWatch = new StopWatch("chat");
+        StopWatch stopWatch = new StopWatch("job-search");
         stopWatch.start("chat");
 
-        logger.info("Running search for query: {}", query);
         List<JobListing> listings = chatClient.prompt()
                 .user(query)
                 .call()
@@ -95,48 +147,62 @@ public class JobSearchService {
 
         stopWatch.start("save in database");
 
-        int newJobsCount = 0;
-        if (listings != null) {
-            logger.info("Saving {} new jobs to the database", listings.size());
-            List<DiceJobEntity> entities = listings.stream()
-                    .filter(listing -> !diceJobRepository.existsById(listing.id()))
-                    .map(listing -> {
-                        DiceJobEntity entity = new DiceJobEntity();
-                        BeanUtils.copyProperties(listing, entity);
-                        return entity;
-                    }).toList();
+        List<JobListing> safeListings = (listings == null) ? Collections.emptyList() : listings;
 
-            newJobsCount = entities.size();
-            if (!entities.isEmpty()) {
-                diceJobRepository.saveAll(entities);
-            }
+        ScanEntity scan = buildScan("Dice", safeListings.size());
+        ScanEntity savedScan = scanRepository.save(scan);
+
+        List<JobListingsEntity> entitiesToInsert = safeListings.stream()
+                // NOTE: existsById(listing.id()) is usually the wrong dedupe key for generated IDs,
+                // but leaving your current rule intact for now.
+                .filter(listing -> !jobListingsRepository.existsById(listing.id()))
+                .map(listing -> toJobEntity(listing, savedScan))
+                .toList();
+
+        if (!entitiesToInsert.isEmpty()) {
+            jobListingsRepository.saveAll(entitiesToInsert);
         }
 
         stopWatch.stop();
-        System.out.println("finished saving to the database " + stopWatch.prettyPrint());
+        logger.info("finished saving to the database {}", stopWatch.prettyPrint());
 
-        long totalJobsCount = diceJobRepository.count();
-        return new SearchRunSummary(query, newJobsCount, totalJobsCount);
+        long totalJobsCount = jobListingsRepository.count();
+        return new SearchRunSummary(query, entitiesToInsert.size(), totalJobsCount);
     }
 
-    public List<JobListing> searchJobs(String query) {
-        runSearchJobs(query);
-        return getAllListings();
+    private ScanEntity buildScan(String serviceScanned, int scanCount) {
+        ScanEntity scan = new ScanEntity();
+        scan.setLastRun(LocalDateTime.now());
+        scan.setScanCount(scanCount);
+        scan.setServiceScanned(serviceScanned);
+        return scan;
+    }
+
+    private JobListingsEntity toJobEntity(JobListing listing, ScanEntity savedScan) {
+        JobListingsEntity entity = new JobListingsEntity();
+
+        // IMPORTANT: do not copy the primary key onto an IDENTITY entity
+        BeanUtils.copyProperties(listing, entity, "id");
+
+        // Ensure Hibernate treats this as a NEW row (INSERT)
+        entity.setId(null);
+
+        entity.setScan(savedScan);
+        return entity;
     }
 
     public List<JobListing> getAllListings() {
-        return diceJobRepository.findAllByOrderByPostedDateDesc().stream()
+        return jobListingsRepository.findAllByOrderByPostedDateDesc().stream()
                 .map(jobMapper::toListing)
                 .toList();
     }
- 
+
     @Tool(description = "Retrieves the 'Dice Id' from a Dice job details page URL")
     public String fetchDiceId(String url) {
         try {
             String html = restTemplate.getForObject(url, String.class);
             if (html == null) return "Could not fetch page content";
-            
-            // Search for "Dice Id:" label and capture value to the right
+
             Pattern pattern = Pattern.compile("Dice Id:\\s*<!--\\s*-->\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
             Matcher matcher = pattern.matcher(html);
             if (matcher.find()) {
