@@ -2,10 +2,7 @@ package com.stromsland.jobsearchdatabase.controller;
 
 import com.stromsland.jobsearchdatabase.service.JobSearchService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/admin/job-search")
@@ -17,10 +14,8 @@ public class JobSearchAdminController {
         this.jobSearchService = jobSearchService;
     }
 
-    @PostMapping("/run")
-    public ResponseEntity<JobSearchService.SearchRunSummary> runNow(
-            @RequestParam(defaultValue = "java") String query
-    ) {
+    @GetMapping("/run")
+    public ResponseEntity<JobSearchService.SearchRunSummary> runNow() {
         String query1 = """
                   I am looking for a java software developer position. It may contain Angular, it may contain
                    Angular and React but it will not include React without the presence of Angular.

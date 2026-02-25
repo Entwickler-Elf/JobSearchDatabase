@@ -145,6 +145,7 @@ jobs:
             --restart always \
             --network "$DOCKER_NETWORK" \
             -p "$HOST_PORT:$CONTAINER_PORT" \
+            --env-file /opt/jobsearch-database/app.env \
             -e SPRING_PROFILES_ACTIVE=dev \
             -e SPRING_DATASOURCE_URL="jdbc:postgresql://${POSTGRES_HOST}:5432/jobhunt" \
             -e SPRING_DATASOURCE_USERNAME="${POSTGRES_USER}" \
